@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Sales & Business Financial Analytics Dashboard</title>
+
+    <link rel="icon" type="image/x-icon" href="MGCmetrics.PNG">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PapaParse for CSV handling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.7); }
+
+        /* Custom Translate Header Button & Dropdown Styles */
+        .custom-translate-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .custom-lang-btn {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s ease;
+        }
+
+        .custom-lang-btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        .lang-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 115%;
+            background-color: white;
+            min-width: 150px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 1000;
+            border: 1px solid #e2e8f0;
+        }
+
+        .dark .lang-dropdown {
+            background-color: #1e293b;
+            border-color: #334155;
+        }
+
+        .lang-dropdown.show {
+            display: block;
+        }
+
+        .lang-option {
+            display: block;
+            padding: 10px 16px;
+            color: #334155;
+            text-decoration: none;
+            font-size: 13px;
+            cursor: pointer;
+            text-align: left;
+            width: 100%;
+            background: none;
+            border: none;
+        }
+
+        .dark .lang-option {
+            color: #cbd5e1;
+        }
+
+        .lang-option:hover {
+            background-color: #f1f5f9;
+            color: #2563eb;
+        }
+
+        .dark .lang-option:hover {
+            background-color: #334155;
+            color: #60a5fa;
+        }
+
+        /* HIDE GOOGLE'S DEFAULT WIDGET & TOP BANNER */
+        #google_translate_element {
+            display: none;
+        }
+        .goog-te-banner-frame.skiptranslate,
+        .goog-te-gadget-icon,
+        .VIpgJd-ZVi9od-aZ2wEe-w332bf {
+            display: none !important;
+        }
+        body {
+            top: 0px !important;
+        }
+    </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-200">
+    <div id="root" class="h-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // Default Sample Data Structure
+        const INITIAL_CURRENCY = 'USD';
+        const SAMPLE_TRANSACTIONS = [
+            { id: 'TXN-1001', customer: 'Acme Corp', amount: 1250.00, currency: 'USD', status: 'Successful', date: '2026-10-15', category: 'Enterprise Sub' },
+            { id: 'TXN-1002', customer: 'Global Tech Solutions', amount: 4500.00, currency: 'EUR', status: 'Successful', date: '2026-10-16', category: 'Consulting' },
+            { id: 'TXN-1003', customer: 'Sora Media', amount: 350.00, currency: 'GBP', status: 'Failed', date: '2026-10-18', category: 'Starter Plan' },
+            { id: 'TXN-1004', customer: 'Innovate AI', amount: 8900.00, currency: 'USD', status: 'Successful', date: '2026-10-19', category: 'Enterprise Sub' },
+            { id: 'TXN-1005', customer: 'Aether Logistics', amount: 150000.00, currency: 'JPY', status: 'Successful', date: '2026-10-20', category: 'Custom Deployment' },
+            { id: 'TXN-1006', customer: 'Komorebi Design', amount: 750.00, currency: 'CAD', status: 'Failed', date: '2026-10-20', category: 'Pro Subscription' },
+            { id: 'TXN-1007', customer: 'Apex Retail', amount: 3200.00, currency: 'AUD', status: 'Successful', date: '2026-10-21', category: 'Add-on Module' }
+        ];
+
+        const SAMPLE_MONTHLY_HISTORICAL = [
+            { month: 'May', revenue: 42000, expenses: 31000 },
+            { month: 'Jun', revenue: 48000, expenses: 32500 },
+            { month: 'Jul', revenue: 55000, expenses: 38000 },
+            { month: 'Aug', revenue: 61000, expenses: 41000 },
+            { month: 'Sep', revenue: 59000, expenses: 43500 },
+            { month: 'Oct', revenue: 74000, expenses: 49000 }
+        ];
+
+        const INITIAL_OPERATIONAL_METRICS = {
+            cac: 145.50,
+            mau: 12840,
+            churnRate: 3.8
+        };
+
+        // Main Application Component
+        function App() {
+            const [theme, setTheme] = useState(() => localStorage.getItem('app_theme') || 'light');
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+            
+            // FX Rates State
+            const [fxRates, setFxRates] = useState({ USD: 1 });
+            const [baseCurrency, setBaseCurrency] = useState('USD');
+            const [selectedDisplayCurrency, setSelectedDisplayCurrency] = useState('USD');
+            const [fxLoading, setFxLoading] = useState(true);
+            const [fxLastUpdated, setFxLastUpdated] = useState(null);
+
+            // Business Data State
+            const [transactions, setTransactions] = useState(() => {
+                const saved = localStorage.getItem('analytics_transactions');
+                return saved ? JSON.parse(saved) : [];
+            });
+
+            // Monthly Chart Data defaults to empty array
+            const [monthlyData, setMonthlyData] = useState(() => {
+                const saved = localStorage.getItem('analytics_monthly_data');
+                return saved ? JSON.parse(saved) : [];
+            });
+
+            const [operationalMetrics, setOperationalMetrics] = useState(() => {
+                const saved = localStorage.getItem('app_metrics');
+                return saved ? JSON.parse(saved) : INITIAL_OPERATIONAL_METRICS;
+            });
+
+            // 3. Manual KPI Inputs default to 0 / empty
+            const [kpiInputs, setKpiInputs] = useState(() => {
+                const saved = localStorage.getItem('analytics_kpis');
+                return saved ? JSON.parse(saved) : {
+                    totalMarketingSpend: 0,
+                    newCustomersAcquired: 0,
+                    totalActiveUsers: 0,
+                    canceledUsers: 0
+                };
+            });
+
+            // Derived KPIs calculation
+            const kpis = useMemo(() => {
+                const totalRevenueUSD = transactions.reduce((sum, tx) => {
+                    if (tx.status === 'Success' || tx.status === 'Successful') {
+                        const amountInUSD = tx.amountUSD || (tx.currency === 'USD' ? tx.amount : tx.amount / (fxRates[tx.currency] || 1));
+                        return sum + amountInUSD;
+                    }
+                    return sum;
+                }, 0);
+
+                const cac = kpiInputs.newCustomersAcquired > 0 
+                    ? (kpiInputs.totalMarketingSpend / kpiInputs.newCustomersAcquired).toFixed(2) 
+                    : 0;
+
+                const mau = kpiInputs.totalActiveUsers || 0;
+
+                const churnRate = kpiInputs.totalActiveUsers > 0 
+                    ? ((kpiInputs.canceledUsers / kpiInputs.totalActiveUsers) * 100).toFixed(1) 
+                    : 0;
+
+                return {
+                    totalRevenue: totalRevenueUSD,
+                    cac: cac,
+                    mau: mau,
+                    churnRate: churnRate
+                };
+            }, [transactions, kpiInputs, fxRates]);
+
+            // UI Modals & Filters State
+            const [isIngestionModalOpen, setIsIngestionModalOpen] = useState(false);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [statusFilter, setStatusFilter] = useState('ALL');
+            const [currentPage, setCurrentPage] = useState(1);
+            const itemsPerPage = 5;
+
+            // Save to LocalStorage
+            useEffect(() => {
+                localStorage.setItem('app_transactions', JSON.stringify(transactions));
+            }, [transactions]);
+
+            useEffect(() => {
+                localStorage.setItem('app_monthly_data', JSON.stringify(monthlyData));
+            }, [monthlyData]);
+
+            useEffect(() => {
+                localStorage.setItem('app_metrics', JSON.stringify(operationalMetrics));
+            }, [operationalMetrics]);
+
+            useEffect(() => {
+                localStorage.setItem('analytics_kpis', JSON.stringify(kpiInputs));
+            }, [kpiInputs]);
+
+            // Theme Effect
+            useEffect(() => {
+                const root = document.documentElement;
+                if (theme === 'dark') {
+                    root.classList.add('dark');
+                } else {
+                    root.classList.remove('dark');
+                }
+                localStorage.setItem('app_theme', theme);
+            }, [theme]);
+
+            const fetchFXRates = async () => {
+                setFxLoading(true);
+                try {
+                    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+                    const data = await res.json();
+                    if (data && data.rates) {
+                        setFxRates(data.rates);
+                        setFxLastUpdated(new Date().toLocaleTimeString());
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch live FX rates:", err);
+                    setFxRates({
+                        USD: 1, EUR: 0.92, GBP: 0.78, JPY: 154.2, CAD: 1.38, AUD: 1.52, INR: 83.4, BRL: 5.6, NGN: 1650.0
+                    });
+                } finally {
+                    setFxLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                fetchFXRates();
+            }, []);
+
+            const convertToUSD = (amount, currency) => {
+                if (!fxRates || !fxRates[currency]) return amount;
+                const rate = fxRates[currency];
+                return amount / rate;
+            };
+
+            const convertFromUSD = (amountUSD, targetCurrency) => {
+                if (!fxRates || !fxRates[targetCurrency]) return amountUSD;
+                return amountUSD * fxRates[targetCurrency];
+            };
+
+            const totalCalculatedRevenueUSD = useMemo(() => {
+                return transactions
+                    .filter(t => t.status === 'Successful')
+                    .reduce((acc, curr) => acc + convertToUSD(curr.amount, curr.currency), 0);
+            }, [transactions, fxRates]);
+
+            const totalCalculatedExpensesUSD = useMemo(() => {
+                return monthlyData.reduce((acc, curr) => acc + curr.expenses, 0);
+            }, [monthlyData]);
+
+            const profitMargin = useMemo(() => {
+                if (totalCalculatedRevenueUSD === 0) return 0;
+                const profit = totalCalculatedRevenueUSD - totalCalculatedExpensesUSD;
+                return ((profit / totalCalculatedRevenueUSD) * 100).toFixed(1);
+            }, [totalCalculatedRevenueUSD, totalCalculatedExpensesUSD]);
+
+            const formatCurrency = (amountUSD, currencyCode = selectedDisplayCurrency) => {
+                const converted = convertFromUSD(amountUSD, currencyCode);
+                try {
+                    return new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: currencyCode,
+                        maximumFractionDigits: 2
+                    }).format(converted);
+                } catch (e) {
+                    return `${currencyCode} ${converted.toFixed(2)}`;
+                }
+            };
+
+            const handleAddTransaction = (newTxn) => {
+                setTransactions([newTxn, ...transactions]);
+            };
+
+            const handleUpdateMetrics = (newMetrics) => {
+                setOperationalMetrics(prev => ({ ...prev, ...newMetrics }));
+            };
+
+            const handleResetData = () => {
+                if (confirm("Reset dashboard data to default initial state?")) {
+                    setTransactions(SAMPLE_TRANSACTIONS);
+                    setMonthlyData(SAMPLE_MONTHLY_HISTORICAL);
+                    setOperationalMetrics(INITIAL_OPERATIONAL_METRICS);
+                    localStorage.removeItem('app_transactions');
+                    localStorage.removeItem('app_monthly_data');
+                    localStorage.removeItem('app_metrics');
+                }
+            };
+
+            const handleResetToZero = () => {
+                setTransactions([]);
+                setMonthlyData([]);
+                setKpiInputs({
+                    totalMarketingSpend: 0,
+                    newCustomersAcquired: 0,
+                    totalActiveUsers: 0,
+                    canceledUsers: 0
+                });
+                localStorage.removeItem('analytics_transactions');
+                localStorage.removeItem('analytics_monthly_data');
+                localStorage.removeItem('analytics_kpis');
+            };
+
+            const exportToJSON = () => {
+                const exportData = {
+                    metadata: {
+                        exportedAt: new Date().toISOString(),
+                        baseCurrency: selectedDisplayCurrency,
+                    },
+                    operationalMetrics,
+                    summary: {
+                        totalRevenueUSD: totalCalculatedRevenueUSD,
+                        totalExpensesUSD: totalCalculatedExpensesUSD,
+                        profitMarginPercent: profitMargin
+                    },
+                    monthlyHistorical: monthlyData,
+                    transactions
+                };
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Business_Analytics_Export_${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+            };
+
+            const exportToCSV = () => {
+                const csvData = transactions.map(t => ({
+                    ID: t.id,
+                    Customer: t.customer,
+                    Category: t.category,
+                    OriginalAmount: t.amount,
+                    Currency: t.currency,
+                    ConvertedAmountUSD: convertToUSD(t.amount, t.currency).toFixed(2),
+                    Status: t.status,
+                    Date: t.date
+                }));
+                const csv = Papa.unparse(csvData);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Transactions_Audit_${new Date().toISOString().slice(0,10)}.csv`;
+                a.click();
+            };
+
+            return (
+                <div class="flex h-screen overflow-hidden bg-slate-100 dark:bg-slate-900">
+                    {sidebarOpen && (
+                        <div 
+                            class="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden"
+                            onClick={() => setSidebarOpen(false)}
+                        ></div>
+                    )}
+
+                    <aside class={`
+                        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700
+                        transform transition-transform duration-200 ease-in-out lg:static lg:translate-x-0
+                        flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+                    `}>
+                        <div class="flex items-center justify-between h-16 px-6 border-b border-slate-200 dark:border-slate-700">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 bg-blue-600 rounded-lg text-white font-bold">
+                                    <i data-lucide="line-chart" class="w-6 h-6"></i>
+                                </div>
+                                <span class="text-lg font-bold text-slate-800 dark:text-white tracking-wide">MGC.FINTECH</span>
+                            </div>
+                            <button 
+                                class="lg:hidden p-1 text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                                onClick={() => setSidebarOpen(false)}
+                            >
+                                <i data-lucide="x" class="w-6 h-6"></i>
+                            </button>
+                        </div>
+
+                        <nav class="flex-1 px-4 py-6 space-y-1 custom-scrollbar overflow-y-auto">
+                            <a href="#" class="flex items-center px-4 py-3 text-sm font-semibold rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                                <i data-lucide="layout-dashboard" class="w-5 h-5 mr-3"></i>
+                                Executive Dashboard
+                            </a>
+                            <a href="#chart-section" class="flex items-center px-4 py-3 text-sm font-medium rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                <i data-lucide="trending-up" class="w-5 h-5 mr-3"></i>
+                                Profit & Revenue Engine
+                            </a>
+                            <a href="#audit-table" class="flex items-center px-4 py-3 text-sm font-medium rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                                <i data-lucide="receipt" class="w-5 h-5 mr-3"></i>
+                                Audit Transactions
+                            </a>
+                        </nav>
+
+                        <div class="p-4 m-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">LIVE FX ENGINE</span>
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    Active
+                                </span>
+                            </div>
+                            <div class="text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                                <p class="flex justify-between"><span>Currencies:</span> <span class="font-bold">{Object.keys(fxRates).length}+</span></p>
+                                <p class="flex justify-between"><span>Updated:</span> <span class="font-mono text-[10px]">{fxLastUpdated || 'Syncing...'}</span></p>
+                            </div>
+                            <button 
+                                onClick={fetchFXRates}
+                                class="mt-3 w-full py-1.5 px-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center justify-center gap-1.5"
+                            >
+                                <i data-lucide="refresh-cw" class={`w-3.5 h-3.5 ${fxLoading ? 'animate-spin' : ''}`}></i>
+                                Refresh Rates
+                            </button>
+                        </div>
+
+                        <div class="p-4 border-t border-slate-200 dark:border-slate-700 flex flex-col gap-2">
+                            <div class="flex items-center justify-between">
+                                <button 
+                                    onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                                    class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg bg-slate-100 dark:bg-slate-700"
+                                    title="Toggle Theme"
+                                >
+                                    <i data-lucide={theme === 'light' ? 'moon' : 'sun'} class="w-5 h-5"></i>
+                                </button>
+                                
+                            </div>
+                            <button 
+                                onClick={handleResetToZero}
+                                class="w-full py-1.5 px-2 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold rounded-lg border border-rose-200 dark:border-rose-800 transition text-center"
+                            >
+                                Clear All to Zero
+                            </button>
+                        </div>
+                    </aside>
+
+                    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+                        <header class="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-4 sm:px-6 z-10">
+                            <div class="flex items-center gap-3">
+                                <button 
+                                    class="lg:hidden p-2 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+                                    onClick={() => setSidebarOpen(true)}
+                                >
+                                    <i data-lucide="menu" class="w-6 h-6"></i>
+                                </button>
+                                <h1 class="text-lg sm:text-xl font-bold text-slate-800 dark:text-white truncate">
+                                    Financial Operations Dashboard
+                                </h1>
+                            </div>
+
+      <div className="flex items-center gap-2 sm:gap-4">
+    {/* CUSTOM HEADER TRANSLATE BUTTON */}
+    <div className="custom-translate-container">
+        <button className="custom-lang-btn" onClick={() => toggleDropdown()}>
+            🌐 Translate ▾
+        </button>
+        <div className="lang-dropdown" id="langDropdown">
+            <button className="lang-option" onClick={() => changeLanguage('en')}>English</button>
+            <button className="lang-option" onClick={() => changeLanguage('es')}>Spanish</button>
+            <button className="lang-option" onClick={() => changeLanguage('fr')}>French</button>
+            <button className="lang-option" onClick={() => changeLanguage('de')}>German</button>
+            <button className="lang-option" onClick={() => changeLanguage('zh-CN')}>Chinese</button>
+        </div>
+    </div>
+
+    {/* Google Translate Widget Element */}
+    <div id="google_translate_element" className="skiptranslate" style={{ display: 'none' }}></div>
+</div>
+                           
+                            <div class="flex items-center gap-2 sm:gap-4">
+                                {/* Google Translate Widget Element */}
+                                <div id="google_translate_element" class="text-xs"></div>
+
+                                {/* Currency Selector */}
+                                <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
+                                    <i data-lucide="globe" class="w-4 h-4 text-slate-500 dark:text-slate-400 hidden sm:inline"></i>
+                                    <select 
+                                        value={selectedDisplayCurrency} 
+                                        onChange={(e) => setSelectedDisplayCurrency(e.target.value)}
+                                        class="bg-transparent text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer"
+                                    >
+                                        {Object.keys(fxRates).map(curr => (
+                                            <option key={curr} value={curr} class="dark:bg-slate-800 text-slate-800 dark:text-slate-100">
+                                                {curr}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <button 
+                                    onClick={() => setIsIngestionModalOpen(true)}
+                                    class="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition shadow-sm flex items-center gap-2"
+                                >
+                                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                    <span class="hidden sm:inline">Ingest Financial Data</span>
+                                    <span class="sm:hidden">Ingest</span>
+                                </button>
+                            </div>
+                        </header>
+
+                        <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar">
+                            {(operationalMetrics.churnRate > 5 || Number(profitMargin) < 10) && (
+                                <div class="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 flex items-start gap-3">
+                                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0"></i>
+                                    <div class="text-xs sm:text-sm text-amber-800 dark:text-amber-200">
+                                        <span class="font-bold">Operational Performance Alert: </span>
+                                        {operationalMetrics.churnRate > 5 && `Customer churn rate is high (${operationalMetrics.churnRate}%). `}
+                                        {Number(profitMargin) < 10 && `Profit margin has dipped to ${profitMargin}%. Review operational expenditure.`}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                                        <span class="text-xs font-semibold uppercase tracking-wider">Total Revenue</span>
+                                        <div class="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                                            <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                                        </div>
+                                    </div>
+                                    <div class="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white">
+                                        {formatCurrency(totalCalculatedRevenueUSD)}
+                                    </div>
+                                    <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 flex items-center gap-1">
+                                        <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+                                        +14.2% from last month
+                                    </p>
+                                </div>
+
+                                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                                        <span class="text-xs font-semibold uppercase tracking-wider">Acquisition Cost (CAC)</span>
+                                        <div class="p-2 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg text-emerald-600 dark:text-emerald-400">
+                                            <i data-lucide="target" class="w-5 h-5"></i>
+                                        </div>
+                                    </div>
+                                    <div class="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white">
+                                        {formatCurrency(kpis.cac)}
+                                    </div>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                        Blended marketing expenditure per account
+                                    </p>
+                                </div>
+
+                                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                                        <span class="text-xs font-semibold uppercase tracking-wider">Active Users (MAU)</span>
+                                        <div class="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+                                            <i data-lucide="users" class="w-5 h-5"></i>
+                                        </div>
+                                    </div>
+                                    <div class="text-2xl sm:text-3xl font-extrabold text-slate-800 dark:text-white">
+                                        {Number(kpis.mau).toLocaleString()}
+                                    </div>
+                                    <p class="text-xs text-emerald-600 dark:text-emerald-400 font-medium mt-2 flex items-center gap-1">
+                                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                                        +8.1% active user retention
+                                    </p>
+                                </div>
+
+                                <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden">
+                                    <div class="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
+                                        <span class="text-xs font-semibold uppercase tracking-wider">Churn Rate</span>
+                                        <div class="p-2 bg-rose-50 dark:bg-rose-900/30 rounded-lg text-rose-600 dark:text-rose-400">
+                                            <i data-lucide="user-minus" class="w-5 h-5"></i>
+                                        </div>
+                                    </div>
+                                    <div class={`text-2xl sm:text-3xl font-extrabold ${kpis.churnRate > 5 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-white'}`}>
+                                        {kpis.churnRate}%
+                                    </div>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                        Target benchmark: &lt; 4.0%
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div id="chart-section" class="bg-white dark:bg-slate-800 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                                    <div>
+                                        <h2 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                            <span>Financial Health: Revenue vs Operational Expenses</span>
+                                        </h2>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                            Comparing incoming money against total expenditures to evaluate profit margins.
+                                        </p>
+                                    </div>
+
+                                    <div class="flex items-center gap-3">
+                                        <div class="text-right">
+                                            <span class="text-xs text-slate-500 dark:text-slate-400 block">Overall Margin</span>
+                                            <span class={`text-base font-bold ${Number(profitMargin) >= 20 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                                {profitMargin}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="h-72 sm:h-80 w-full">
+                                    <FinancialChart 
+                                        monthlyData={monthlyData} 
+                                        theme={theme}
+                                        currency={selectedDisplayCurrency}
+                                        convertFromUSD={convertFromUSD}
+                                    />
+                                </div>
+                            </div>
+
+                            <div id="audit-table" class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                                <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <h2 class="text-lg font-bold text-slate-800 dark:text-white">
+                                            Daily Financial Operations Audit
+                                        </h2>
+                                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                                            Real-time transaction log automatically converted to standardized currency.
+                                        </p>
+                                    </div>
+
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <div class="relative flex-1 sm:w-48">
+                                            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search customer..." 
+                                                value={searchQuery}
+                                                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                                                class="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+
+                                        <select 
+                                            value={statusFilter}
+                                            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                                            class="px-3 py-1.5 text-xs sm:text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <option value="ALL">All Statuses</option>
+                                            <option value="Successful">Successful</option>
+                                            <option value="Failed">Failed</option>
+                                        </select>
+
+                                        <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+                                            <button 
+                                                onClick={exportToCSV}
+                                                class="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition"
+                                                title="Export to CSV"
+                                            >
+                                                CSV
+                                            </button>
+                                            <button 
+                                                onClick={exportToJSON}
+                                                class="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-600 rounded-lg transition"
+                                                title="Export to JSON"
+                                            >
+                                                JSON
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr class="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                                                <th class="p-4">Transaction ID</th>
+                                                <th class="p-4">Customer & Category</th>
+                                                <th class="p-4">Original Local Amount</th>
+                                                <th class="p-4">Converted Equiv ({selectedDisplayCurrency})</th>
+                                                <th class="p-4">Status</th>
+                                                <th class="p-4">Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-200 dark:divide-slate-700 text-xs sm:text-sm">
+                                            {(() => {
+                                                const filtered = transactions.filter(t => {
+                                                    const matchesQuery = t.customer.toLowerCase().includes(searchQuery.toLowerCase()) || t.id.toLowerCase().includes(searchQuery.toLowerCase());
+                                                    const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
+                                                    return matchesQuery && matchesStatus;
+                                                });
+
+                                                if (filtered.length === 0) {
+                                                    return (
+                                                        <tr>
+                                                            <td colSpan="6" class="p-8 text-center text-slate-400 dark:text-slate-500">
+                                                                No transaction records match your criteria.
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                }
+
+                                                const totalPages = Math.ceil(filtered.length / itemsPerPage);
+                                                const startIdx = (currentPage - 1) * itemsPerPage;
+                                                const paginated = filtered.slice(startIdx, startIdx + itemsPerPage);
+
+                                                return paginated.map(t => {
+                                                    const amountUSD = convertToUSD(t.amount, t.currency);
+                                                    return (
+                                                        <tr key={t.id} class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                                            <td class="p-4 font-mono font-medium text-slate-700 dark:text-slate-300">{t.id}</td>
+                                                            <td class="p-4">
+                                                                <div class="font-bold text-slate-800 dark:text-slate-100">{t.customer}</div>
+                                                                <div class="text-xs text-slate-400">{t.category || 'General'}</div>
+                                                            </td>
+                                                            <td class="p-4 font-semibold text-slate-700 dark:text-slate-300">
+                                                                {t.currency} {t.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                            </td>
+                                                            <td class="p-4 font-bold text-slate-900 dark:text-white">
+                                                                {formatCurrency(amountUSD)}
+                                                            </td>
+                                                            <td class="p-4">
+                                                                <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                                                    t.status === 'Successful' 
+                                                                        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' 
+                                                                        : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
+                                                                }`}>
+                                                                    <span class={`w-1.5 h-1.5 rounded-full mr-1.5 ${t.status === 'Successful' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                                                    {t.status}
+                                                                </span>
+                                                            </td>
+                                                            <td class="p-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">{t.date}</td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+
+                    {isIngestionModalOpen && (
+                        <IngestionModal 
+                            onClose={() => setIsIngestionModalOpen(false)}
+                            onAddTransaction={handleAddTransaction}
+                            onUpdateMetrics={handleUpdateMetrics}
+                            fxRates={fxRates}
+                            currentMetrics={operationalMetrics}
+                        />
+                    )}
+                </div>
+            );
+        }
+        function FinancialChart({ monthlyData, theme, currency, convertFromUSD }) {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            // ✅ CORRECT: Place the check here before useEffect or return
+            if (!monthlyData || monthlyData.length === 0) {
+                return (
+                    <div class="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-2xl text-slate-500">
+                        <p class="text-base font-semibold">No chart data available</p>
+                        <p class="text-xs mt-1">Add transactions or import financial figures to view the revenue vs. expense chart.</p>
+                    </div>
+                );
+            }
+
+            useEffect(() => {
+                if (!chartRef.current) return;
+
+                const ctx = chartRef.current.getContext('2d');
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+
+                const isDark = theme === 'dark';
+                const textColor = isDark ? '#94a3b8' : '#64748b';
+                const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+                // Format numbers according to active currency
+                const labels = monthlyData.map(d => d.month);
+                const revenueConverted = monthlyData.map(d => convertFromUSD(d.revenue, currency));
+                const expensesConverted = monthlyData.map(d => convertFromUSD(d.expenses, currency));
+
+                chartInstance.current = new Chart(ctx, {
+                    // ... chart options ...
+                });
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [monthlyData, theme, currency, convertFromUSD]);
+
+            return <canvas ref={chartRef}></canvas>;
+        }
+
+        function IngestionModal({ onClose, onAddTransaction, onUpdateMetrics, fxRates, currentMetrics }) {
+            const [activeTab, setActiveTab] = useState('transaction'); // 'transaction', 'csv', 'metrics'
+
+            // Manual Transaction Form
+            const [customer, setCustomer] = useState('');
+            const [amount, setAmount] = useState('');
+            const [currency, setCurrency] = useState('USD');
+            const [status, setStatus] = useState('Successful');
+            const [category, setCategory] = useState('Enterprise Sub');
+
+            // Operational Metrics Form
+            const [cacInput, setCacInput] = useState(currentMetrics.cac);
+            const [mauInput, setMauInput] = useState(currentMetrics.mau);
+            const [churnInput, setChurnInput] = useState(currentMetrics.churnRate);
+
+            // Drag and Drop CSV State
+            const [dragActive, setDragActive] = useState(false);
+            const [csvStatusMessage, setCsvStatusMessage] = useState('');
+
+            const handleSingleTxnSubmit = (e) => {
+                e.preventDefault();
+                if (!customer || !amount || Number(amount) <= 0) return;
+
+                const newTxn = {
+                    id: `TXN-${Math.floor(1000 + Math.random() * 9000)}`,
+                    customer,
+                    amount: parseFloat(amount),
+                    currency,
+                    status,
+                    category,
+                    date: new Date().toISOString().slice(0,10)
+                };
+
+                onAddTransaction(newTxn);
+                onClose();
+            };
+
+            const handleMetricsSubmit = (e) => {
+                e.preventDefault();
+                onUpdateMetrics({
+                    cac: parseFloat(cacInput),
+                    mau: parseInt(mauInput, 10),
+                    churnRate: parseFloat(churnInput)
+                });
+                onClose();
+            };
+
+            // CSV Drag & Drop Handler
+            const handleCSVProcess = (file) => {
+                if (!file) return;
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        let count = 0;
+                        results.data.forEach((row) => {
+                            if (row.customer && row.amount) {
+                                onAddTransaction({
+                                    id: row.id || `TXN-${Math.floor(1000 + Math.random() * 9000)}`,
+                                    customer: row.customer,
+                                    amount: parseFloat(row.amount),
+                                    currency: row.currency ? row.currency.toUpperCase() : 'USD',
+                                    status: row.status || 'Successful',
+                                    category: row.category || 'Imported',
+                                    date: row.date || new Date().toISOString().slice(0,10)
+                                });
+                                count++;
+                            }
+                        });
+                        setCsvStatusMessage(`Successfully ingested ${count} transactions.`);
+                        setTimeout(() => onClose(), 1200);
+                    },
+                    error: (err) => {
+                        setCsvStatusMessage(`CSV Parse Error: ${err.message}`);
+                    }
+                });
+            };
+
+            return (
+                <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden flex flex-col">
+                        
+                        {/* Header */}
+                        <div class="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-700">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                <i data-lucide="database" class="w-5 h-5 text-blue-600"></i>
+                                Data Ingestion Engine
+                            </h3>
+                            <button onClick={onClose} class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                <i data-lucide="x" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+
+                        {/* Modal Navigation Tabs */}
+                        <div class="flex border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30">
+                            <button 
+                                class={`flex-1 py-3 text-xs font-semibold border-b-2 ${activeTab === 'transaction' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500'}`}
+                                onClick={() => setActiveTab('transaction')}
+                            >
+                                Single Log
+                            </button>
+                            <button 
+                                class={`flex-1 py-3 text-xs font-semibold border-b-2 ${activeTab === 'csv' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500'}`}
+                                onClick={() => setActiveTab('csv')}
+                            >
+                                CSV Import
+                            </button>
+                            <button 
+                                class={`flex-1 py-3 text-xs font-semibold border-b-2 ${activeTab === 'metrics' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-slate-500'}`}
+                                onClick={() => setActiveTab('metrics')}
+                            >
+                                Operational Metrics
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div class="p-6">
+                            {/* Tab 1: Single Transaction Form */}
+                            {activeTab === 'transaction' && (
+                                <form onSubmit={handleSingleTxnSubmit} class="space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Customer / Enterprise Name</label>
+                                        <input 
+                                            type="text" required placeholder="e.g. Acme Corp" 
+                                            value={customer} onChange={e => setCustomer(e.target.value)}
+                                            class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Amount</label>
+                                            <input 
+                                                type="number" step="0.01" required placeholder="0.00" 
+                                                value={amount} onChange={e => setAmount(e.target.value)}
+                                                class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Currency (160+ Live)</label>
+                                            <select 
+                                                value={currency} onChange={e => setCurrency(e.target.value)}
+                                                class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                {Object.keys(fxRates).map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Payment Status</label>
+                                            <select 
+                                                value={status} onChange={e => setStatus(e.target.value)}
+                                                class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="Successful">Successful</option>
+                                                <option value="Failed">Failed</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                                            <input 
+                                                type="text" placeholder="e.g. Subscription" 
+                                                value={category} onChange={e => setCategory(e.target.value)}
+                                                class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button type="submit" class="w-full mt-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition">
+                                        Record Transaction
+                                    </button>
+                                </form>
+                            )}
+
+                            {/* Tab 2: CSV Drag & Drop */}
+                            {activeTab === 'csv' && (
+                                <div class="space-y-4">
+                                    <div 
+                                        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                                        onDragLeave={() => setDragActive(false)}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            setDragActive(false);
+                                            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                                                handleCSVProcess(e.dataTransfer.files[0]);
+                                            }
+                                        }}
+                                        class={`border-2 border-dashed rounded-2xl p-8 text-center transition ${
+                                            dragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-300 dark:border-slate-600'
+                                        }`}
+                                    >
+                                        <i data-lucide="upload-cloud" class="w-10 h-10 mx-auto text-slate-400 mb-2"></i>
+                                        <p class="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                            Drag & Drop financial CSV here
+                                        </p>
+                                        <p class="text-xs text-slate-400 mt-1 mb-4">
+                                            Expected headers: customer, amount, currency, status
+                                        </p>
+                                        <label class="inline-block px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl cursor-pointer">
+                                            Browse CSV File
+                                            <input 
+                                                type="file" accept=".csv" class="hidden" 
+                                                onChange={(e) => e.target.files[0] && handleCSVProcess(e.target.files[0])}
+                                            />
+                                        </label>
+                                    </div>
+                                    {csvStatusMessage && (
+                                        <p class="text-xs text-center font-semibold text-emerald-600 dark:text-emerald-400">
+                                            {csvStatusMessage}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Tab 3: Update Operational Vital Signs */}
+                            {activeTab === 'metrics' && (
+                                <form onSubmit={handleMetricsSubmit} class="space-y-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Customer Acquisition Cost (CAC in USD)</label>
+                                        <input 
+                                            type="number" step="0.01" required value={cacInput} onChange={e => setCacInput(e.target.value)}
+                                            class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Monthly Active Users (MAU)</label>
+                                        <input 
+                                            type="number" required value={mauInput} onChange={e => setMauInput(e.target.value)}
+                                            class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Churn Rate (%)</label>
+                                        <input 
+                                            type="number" step="0.1" required value={churnInput} onChange={e => setChurnInput(e.target.value)}
+                                            class="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <button type="submit" class="w-full mt-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition">
+                                        Update Vital Signs
+                                    </button>
+                                </form>
+                            )}
+                        </div>
+
+                    </div>
+                </div>
+            );
+        }
+
+        const rootElement = document.getElementById('root');
+        const root = ReactDOM.createRoot(rootElement);
+        root.render(<App />);
+
+        // Initialize Lucide Icons after render
+        setTimeout(() => {
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }, 100);
+        
+    </script>
+    
+<!-- Google Translate Engine Script -->
+<script type="text/javascript">
+    function googleTranslateElementInit() {
+        new google.translate.TranslateElement({
+            pageLanguage: 'en',
+            autoDisplay: false
+        }, 'google_translate_element');
+    }
+</script>
+<script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+<!-- Custom JavaScript for Translate Button Toggle and Actions -->
+<script>
+    function toggleDropdown() {
+        document.getElementById('langDropdown').classList.toggle('show');
+    }
+
+    function changeLanguage(langCode) {
+        const googleSelect = document.querySelector('.goog-te-combo');
+        if (googleSelect) {
+            googleSelect.value = langCode;
+            googleSelect.dispatchEvent(new Event('change'));
+        } else {
+            console.warn("Google Translate engine is still loading or failed to initialize.");
+        }
+        const dropdown = document.getElementById('langDropdown');
+        if (dropdown) dropdown.classList.remove('show');
+    }
+
+    window.onclick = function(event) {
+        if (!event.target.matches('.custom-lang-btn') && !event.target.closest('.custom-translate-container')) {
+            const dropdown = document.getElementById('langDropdown');
+            if (dropdown && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        }
+    }
+</script>
+<footer style="text-align: center; padding: 20px 0;">      
+    <p>&copy; <span id="year"></span> Mbaeri Gospel Chinomso. All rights reserved.</p>
+      <script>
+        document.getElementById("year").textContent = new Date().getFullYear();
+      </script>
+    </footer>
+
+  </body>
+</html>
